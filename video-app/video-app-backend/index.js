@@ -1,0 +1,93 @@
+const fs = require('fs'); //the file system
+const express = require('express');
+const cors = require('cors');
+const https = require('https');
+const http = require('http');
+const path = require('path');
+
+const socketio = require('socket.io');
+
+const app = express();
+
+app.use(cors()); //this will open our Express API to ANY domain
+
+app.use(express.static('public'));
+
+app.set('view engine', 'ejs');
+app.set('views', './views');
+
+const bodyParser = require('body-parser');
+app.use(bodyParser.json()); //this will allow us to parse json in the body with the body parser
+app.use(bodyParser.urlencoded({ extended: true }));
+
+const server = http.createServer({}, app);
+
+const io = socketio(server, {
+    cors: {
+      origin: '*',
+    }
+});
+
+server.listen(8080, function() {
+    console.log("Server is running on Port 8080");
+});
+
+//const userRoutes = require('./routes/userRoute');
+
+//app.use('/', userRoutes);
+
+// socket io work
+var userConnection = [];
+
+io.on("connection", (socket) => {
+    console.log("A user connected with id: ", socket.id);
+    socket.on("user_info_to_signaling_server", (data) => {
+        console.log("Inside user_info_to_signaling_server");
+	
+	var other_users = userConnection.filter(p => p.meeting_id == data.meeting_id);
+        userConnection.push({
+            connectionId: socket.id,
+            user_id: data.current_username,
+            meeting_id: data.meeting_id,
+            is_host: data.is_host
+        });
+
+        console.log(`all users ${userConnection.map(a => a.connectionId)}`);
+        console.log(`other users ${other_users.map(a => a.connectionId)}`);
+    
+        other_users.forEach(other_user => {
+	    console.log(other_user.connectionId + " " + other_user.is_host);
+	    if(other_user.is_host == "true") { // Host
+		console.log("emitting host_to_inform to " + other_user.connectionId);
+                socket.to(other_user.connectionId).emit('host_to_inform', {
+                    other_user_id: data.current_user_name,
+                    other_user_is_host: data.is_host,
+                    connId: socket.id
+                });
+                
+		console.log("emitting new_connection_information to " + other_user);
+                socket.emit("new_connection_information", other_user);
+            }
+        });
+    });
+
+    socket.on('sdpProcess', (data) => {
+        socket.to(data.to_connid).emit('sdpProcess', {
+            message: data.message,
+            from_connid: socket.id
+        });
+    });
+
+    socket.on('disconnect', function() {
+        var disUser = userConnection.find(p => p.connectionId == socket.id);
+        if(disUser) {
+            var meetingId = disUser.meeting_id;
+            userConnection = userConnection.filter(p => p.connectionId != socket.id);
+            var host = userConnection.filter( p => p.is_host =='true');
+	    // var restUser = userConnection.filter( p => p.meeting_id == meetingId);
+            // restUser.forEach(n => {
+            socket.to(host.connectionId).emit('closedConnectionInfo', socket.id);
+            // });
+        }
+    });
+});
