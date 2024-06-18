@@ -1,56 +1,66 @@
 <!DOCTYPE html>
-
-<html lang="en">
-
+<html>
 <head>
     <meta charset="UTF-8">
-
-    <title>Group Video Call</title>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="/css/materialize.min.css">
-    <link rel="stylesheet" href="/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FxUAV</title>
+    <link rel="stylesheet" href="./css/styles.css">
 </head>
-
 <body>
-    <div class="main-wrap">
-        <div class="call-wrap card" style="z-index: 99">
-            <div class="action-wrap" style="display: flex;justify-content: center; align-items: center;padding:30px;">
-                <div style="display:flex; justify-content:center;align-items:center;background-color:#00554d;height:50px;max-width:200px;min-width:200px;font-size:20px;align-self:center;color:white;margin-right:50px;border-radius:5px;" class="host-meeting">Host</div>
-                <div style="display:flex; justify-content:center;align-items:center;background-color:#00554d;height:50px;max-width:200px;min-width:200px;font-size:20px;align-self:center;color:white;border-radius:5px;" class="join-meeting">Join</div>
+    <div id="container">
+        <div id="fxuav-logo"></div>
+        <div id="fxuav-title">5G LIVE</div>
+        <form action="#">
+            <div class="input-field">
+                <input type="text" id="drone-id" required>
+                <label>Enter Drone ID</label>
             </div>
-        </div>
+            <div class="input-field">
+                <input type="password" id="password" required>
+                <label>Enter Password</label>
+            </div>
+            <button type="submit" id="play">Play</button>
+        </form>
     </div>
-
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script src="/js/materialize.min.js"></script>
-    <script src="/js/client.js"></script>
     <script>
-        $(function() {
-            $(document).on("click", ".host-meeting", function() {
-                const meeting_id = 123;
-                
-                let url = window.location.origin + "/stream"+"?"+"username=Host"+"&"+"meeting_id="+meeting_id+"&"+"is_host="+true;
-                window.location.replace(url);
-            })
-        });
-
-        $(document).on("click", ".join-meeting", function() {
-            $(".action-wrap").empty().html('<div class="row"> <form class="col s12"> <a href="#"><i class="material-icons prefix">arrow_back</i></a><div class="row"> <div class="input-field col s6" style="width: 100%;"> <i class="material-icons prefix">call_to_action</i> <input id="icon_prefix" type="text" class="validate join-value"> <label for="icon_prefix">Meeting ID [Without Space]</label> </div> </div> <button class="btn waves-effect waves-light teal darken-2 join-submit" type="submit" name="action">Join<i class="material-icons right">send</i></button></form> </div>');
-        });
-
-        $(document).on("click", ".join-submit", function(e) {
+        $(document).on("click", "#play", function(e) {
             e.preventDefault();
-            
-            var meetingValue = $("input.join-value").val();
 
-            if(meetingValue != 123 && meetingValue != 456) {
-                alert("Invalid Meeting ID");
+            let droneID = $("#drone-id").val();
+            let password = $("#password").val();
+
+	    if(droneID === "") {
+                alert("Drone ID is required");
+                return;
             }
-            else {
-                let url = window.location.origin + "/meeting"+"?"+"meeting_id="+meetingValue+"&"+"is_host="+false;
-                window.location.replace(url);
+            
+	    if (password === "") {
+                alert("Password is required");
+                return;
             }
-        })
+	    
+	    $.ajax({
+                url: '/validate-drone',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ droneID: droneID, password: password }),
+                success: function(res) {
+		    let jwtToken = res.token;
+		    sessionStorage.setItem('jwtToken', jwtToken);
+
+                    let url = window.location.origin + "/stream" + "?" + "droneID=" + droneID + "&" + "isHost=" + false;
+                    window.location.replace(url);
+                },
+                error: function(jqXHR) {
+                    if (jqXHR.status === 401) {
+                        alert("Invalid Drone ID or Password");
+                    } else {
+                        alert("Error during Drone Validation. Please try again.");
+                    }
+                }
+            });
+        });
     </script>
 </body>
 </html>
