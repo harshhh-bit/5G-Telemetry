@@ -110,9 +110,14 @@
 
             processMedia();
         });
+
+	socket.on('host_already_exists', function() {
+            alert('Drone is already streaming');
+            window.location.href = '/';
+        })
     
         socket.on('new_connection_information', function(host) { // Host -> New User
-            if(host) {
+            if(host !== undefined) {
                 $('#remote-video .other').remove();
             
                 addUser(host.connectionId);
@@ -382,18 +387,15 @@
             window.location.href = '/';
         };
 
-        socket.on('closedConnectionInfo', function(connId) {
-            // $('#'+connId).remove();
+        socket.on('host_left_info', () => {
+	    alert('Drone has stopped streaming');
+            window.location.href = '/';
+        });
+
+        socket.on('other_user_left_info', function(connId) {
             users_connectionID[connId] = null;
             users_connection[connId].close();
             users_connection[connId] = null;
-            if(remoteStream[connId]) {
-                remoteStream[connId].getTracks().forEach(t => {
-                    t.stop();
-                });
-
-                remoteStream[connId] = null;
-            }
         });
     </script>
 </body>
